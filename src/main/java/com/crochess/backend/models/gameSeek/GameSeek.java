@@ -1,27 +1,25 @@
 package com.crochess.backend.models.gameSeek;
 
-import com.crochess.backend.types.Color;
+import com.crochess.backend.types.UserColor;
 import com.crochess.backend.types.GameType;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
+@Getter
+@NoArgsConstructor
 @Entity
 @Table(schema = "crochess" , name = "gameseeks")
 public class GameSeek {
     @Id
-    @GeneratedValue(strategy=GenerationType.AUTO)
+    @GeneratedValue(strategy=GenerationType.SEQUENCE, generator = "crochess.gameseek_seq")
     private int id;
-//    @Enumerated(EnumType.STRING)
     private String color;
     private int time;
     private int increment;
     private String seeker;
 
-
-    protected GameSeek() {
-    }
     public GameSeek(
             @JsonProperty("color")
             String color,
@@ -30,9 +28,7 @@ public class GameSeek {
             @JsonProperty("increment")
             int increment,
             @JsonProperty("seeker")
-            String seeker,
-            @JsonProperty("gameType")
-            String gameType) {
+            String seeker) {
         this.color = color;
         this.time = time;
         this.increment = increment;
@@ -40,8 +36,8 @@ public class GameSeek {
     }
 
 
-    public Color getColor() {
-        return Color.of(this.color);
+    public UserColor getColor() {
+        return UserColor.of(this.color);
     };
     public GameType getGameType() {
         if(this.time < 120) return GameType.BULLET;
