@@ -11,10 +11,10 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
+@Table(schema = "crochess", name = "gamestate")
 public class GameState {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "crochess.gamestate_seq")
-    private int id;
+    private Integer game_id;
     private long time_stamp_at_turn_start;
     private String fen;
     private long w_time;
@@ -23,7 +23,8 @@ public class GameState {
     private boolean w_draw;
     private boolean b_draw;
 
-    @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "game_id", referencedColumnName = "id")
+    @OneToOne(cascade = {CascadeType.REMOVE, CascadeType.PERSIST})
+    @JoinColumn(name = "game_id")
+    @MapsId
     private Game game;
 }
