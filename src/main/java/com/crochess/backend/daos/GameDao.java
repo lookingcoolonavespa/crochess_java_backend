@@ -5,37 +5,65 @@ import com.crochess.backend.models.Game;
 import com.crochess.backend.models.GameState;
 import com.crochess.backend.models.gameSeek.GameSeek;
 import jakarta.persistence.*;
+import org.hibernate.LockOptions;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.springframework.stereotype.Repository;
 
+import java.lang.reflect.Field;
 import java.sql.*;
-import java.util.ResourceBundle;
+import java.util.List;
+import java.util.function.Consumer;
 
 @Repository
 public class GameDao {
-    private final ResourceBundle reader = ResourceBundle.getBundle("env");
-    private Connection conn;
-    private PreparedStatement pst;
-    private ResultSet rs;
     private Session ss;
     private Transaction tx;
 
-    public Game insert(Game game) {
+    public List<Integer> insert(Game game) {
         try {
             ss = CrochessBackendApplication.sf.getCurrentSession();
             tx = ss.beginTransaction();
-
+            System.out.println(game);
             GameState gs =
                     new GameState(game.getId(), System.currentTimeMillis(), "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP" +
-                            "/RNBQKBNR w KQkq - 0 1", game.getTime(), game.getTime(), null, false, false, game);
+                            "/RNBQKBNR w KQkq - 0 1", game.getTime() * 1000L, game.getTime() * 1000L, null, false,
+                            false, game);
+            System.out.println(gs);
             ss.persist(gs);
             // delete game seeks opened by either player
-            String hql = "DELETE FROM GameSeek WHERE seeker = :wId OR seeker = :bId";
+            String hql = "SELECT gs.id FROM GameSeek gs WHERE gs.seeker = :wId OR gs.seeker = :bId";
             Query query = ss.createQuery(hql);
             query.setParameter("wId", game.getW_id());
             query.setParameter("bId", game.getB_id());
+            List<Integer> list = query.getResultList();
+
+            hql = "DELETE FROM GameSeek WHERE seeker = :wId OR seeker = :bId";
+            query = ss.createQuery(hql);
+            query.setParameter("wId", game.getW_id());
+            query.setParameter("bId", game.getB_id());
             query.executeUpdate();
+            tx.commit();
+
+            return list;
+        } catch (Exception error) {
+            System.out.println(error.getLocalizedMessage());
+            if (tx != null) tx.rollback();
+        } finally {
+            if (ss != null) ss.close();
+        }
+
+        return null;
+    }
+
+    public Game update(int id, Consumer<Game> updater) {
+        try {
+            ss = CrochessBackendApplication.sf.getCurrentSession();
+            Transaction tx = ss.beginTransaction();
+
+            Game game = ss.getReference(Game.class, id);
+            updater.accept(game);
+            ss.merge(game);
 
             tx.commit();
             return game;
@@ -69,7 +97,7 @@ public class GameDao {
         return null;
     }
 
-    public GameState getState(int id) throws SQLException {
+    public GameState getState(int id) {
         try {
             ss = CrochessBackendApplication.sf.getCurrentSession();
             Transaction tx = ss.beginTransaction();

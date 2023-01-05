@@ -1,16 +1,14 @@
 package com.crochess.backend.models;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
+@ToString
 @Table(schema = "crochess", name = "gamestate")
 public class GameState {
     @Id
@@ -23,8 +21,9 @@ public class GameState {
     private boolean w_draw;
     private boolean b_draw;
 
-    @OneToOne(cascade = {CascadeType.REMOVE, CascadeType.PERSIST})
+    @OneToOne(cascade = {CascadeType.REMOVE, CascadeType.PERSIST}, fetch = FetchType.LAZY)
     @JoinColumn(name = "game_id")
     @MapsId
+    @ToString.Exclude
     private Game game;
 }
