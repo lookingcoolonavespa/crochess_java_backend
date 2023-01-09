@@ -1,6 +1,7 @@
 package com.crochess.backend.daos;
 
 import com.crochess.backend.CrochessBackendApplication;
+import com.crochess.backend.models.DrawRecord;
 import com.crochess.backend.models.Game;
 import com.crochess.backend.models.GameState;
 import com.crochess.backend.models.gameSeek.GameSeek;
@@ -27,9 +28,11 @@ public class GameDao {
             System.out.println(game);
             GameState gs =
                     new GameState(game.getId(), System.currentTimeMillis(), "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP" +
-                            "/RNBQKBNR w KQkq - 0 1", game.getTime() * 1000L, game.getTime() * 1000L, null, false,
-                            false, game);
-            System.out.println(gs);
+                            "/RNBQKBNR w KQkq - 0 1", game.getTime() * 1000L, game.getTime() * 1000L, null, null,
+                            null, null, game);
+            DrawRecord dr = new DrawRecord(game.getId(), false, false, game);
+            game.setGameState(gs);
+            game.setDrawRecord(dr);
             ss.persist(gs);
             // delete game seeks opened by either player
             String hql = "SELECT gs.id FROM GameSeek gs WHERE gs.seeker = :wId OR gs.seeker = :bId";

@@ -1,14 +1,18 @@
 package com.crochess.backend.models;
 
+import com.crochess.backend.types.UserColor;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.DynamicUpdate;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Entity
 @ToString
+@Entity
+@DynamicUpdate
 @Table(schema = "crochess", name = "gamestate")
 public class GameState {
     @Id
@@ -18,12 +22,18 @@ public class GameState {
     private long w_time;
     private long b_time;
     private String history;
-    private boolean w_draw;
-    private boolean b_draw;
+    private String moves;
+    private String result; // mate, draw, or time
+    private String winner;
 
-    @OneToOne(cascade = {CascadeType.REMOVE, CascadeType.PERSIST}, fetch = FetchType.LAZY)
+    @OneToOne(cascade = {CascadeType.REMOVE}, fetch = FetchType.LAZY)
     @JoinColumn(name = "game_id")
     @MapsId
     @ToString.Exclude
+    @JsonIgnore
     private Game game;
+
+    public UserColor getWinner() {
+        return UserColor.of(this.winner);
+    }
 }

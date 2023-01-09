@@ -1,5 +1,6 @@
 package com.crochess.backend;
 
+import com.crochess.backend.models.DrawRecord;
 import com.crochess.backend.models.Game;
 import com.crochess.backend.models.GameState;
 import com.crochess.backend.models.gameSeek.GameSeek;
@@ -21,5 +22,6 @@ public class CrochessBackendApplication {
                                .addAnnotatedClass(GameState.class)
                                .addAnnotatedClass(
                                        GameSeek.class)
+                               .addAnnotatedClass(DrawRecord.class)
                                .buildSessionFactory();
 }
