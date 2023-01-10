@@ -4,11 +4,14 @@ import com.crochess.backend.daos.GameDao;
 import com.crochess.backend.misc.WsMessage;
 import com.crochess.backend.models.DrawRecord;
 import com.crochess.backend.models.Game;
+import com.crochess.backend.models.GameOverDetails;
 import com.crochess.backend.models.GameState;
 import com.crochess.engine0x88.types.Color;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.Id;
 import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -67,6 +70,31 @@ public class GameController {
         public String move;
     }
 
+    @Getter
+    private static class GameOverGameState {
+        public GameOverGameState(GameState gs, GameOverDetails details) {
+            this.game_id = gs.getGame_id();
+            this.time_stamp_at_turn_start = gs.getTime_stamp_at_turn_start();
+            this.fen = gs.getFen();
+            this.w_time = gs.getW_time();
+            this.b_time = gs.getB_time();
+            this.history = gs.getHistory();
+            this.moves = gs.getMoves();
+            this.result = details.getResult();
+            this.winner = String.valueOf(details.getWinner());
+        }
+
+        private final Integer game_id;
+        private final long time_stamp_at_turn_start;
+        private final String fen;
+        private final long w_time;
+        private final long b_time;
+        private final String history;
+        private final String moves;
+        private final String result; // mate, draw, or time
+        private final String winner;
+    }
+
     @MessageMapping("/api/game/{id}")
     public String makeMove(
             @DestinationVariable
@@ -75,8 +103,8 @@ public class GameController {
             MoveDetails moveDetails) throws JsonProcessingException {
         Consumer<Game> patchGame = (Game game) -> {
             GameState gs = game.getGameState();
-            System.out.println(gs);
-            if (gs.getWinner() != null) return;
+            GameOverDetails details = game.getDetails();
+            if (details.getResult() != null) return;
 
             if (gs.getMoves() == null) com.crochess.engine0x88.Uci.inputPosition("position startpos");
             else com.crochess.engine0x88.Uci.inputPosition("position startpos moves " + gs.getMoves());
@@ -99,10 +127,11 @@ public class GameController {
             boolean checkmate = false;
             if (com.crochess.engine0x88.GameState.isCheckmate(com.crochess.engine0x88.GameState.activeColor)) {
                 checkmate = true;
-                gs.setResult("mate");
-                gs.setWinner(moveDetails.playerId);
+                details.setResult("mate");
+                char winner = Objects.equals(moveDetails.playerId, game.getW_id()) ? 'w' : 'b';
+                details.setWinner(winner);
             } else if (com.crochess.engine0x88.GameState.isForcedDraw()) {
-                gs.setResult("draw");
+                details.setResult("draw");
             } else if (com.crochess.engine0x88.GameState.isUnforcedDraw()) {
                 dr.setB(true);
                 dr.setW(true);
@@ -129,6 +158,11 @@ public class GameController {
 
         Game g = this.dao.update(id, patchGame);
 
+        if (g.getDetails()
+             .getResult() != null) {
+            return new ObjectMapper().writeValueAsString(new WsMessage<GameOverGameState>("update on move game-over",
+                    new GameOverGameState(g.getGameState(), g.getDetails())));
+        }
         return new ObjectMapper().writeValueAsString(new WsMessage<GameState>("update", g.getGameState()));
     }
 }

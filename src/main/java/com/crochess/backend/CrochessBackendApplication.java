@@ -2,6 +2,7 @@ package com.crochess.backend;
 
 import com.crochess.backend.models.DrawRecord;
 import com.crochess.backend.models.Game;
+import com.crochess.backend.models.GameOverDetails;
 import com.crochess.backend.models.GameState;
 import com.crochess.backend.models.gameSeek.GameSeek;
 import org.hibernate.SessionFactory;
@@ -12,7 +13,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class CrochessBackendApplication {
 
-    public static void main(String[] args) throws ClassNotFoundException {
+    public static void main(String[] args) {
         SpringApplication.run(CrochessBackendApplication.class, args);
     }
 
@@ -23,5 +24,6 @@ public class CrochessBackendApplication {
                                .addAnnotatedClass(
                                        GameSeek.class)
                                .addAnnotatedClass(DrawRecord.class)
+                               .addAnnotatedClass(GameOverDetails.class)
                                .buildSessionFactory();
 }

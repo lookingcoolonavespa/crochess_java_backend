@@ -23,4 +23,7 @@ public class Game {
     private GameState gameState;
     @OneToOne(cascade = {CascadeType.REMOVE, CascadeType.MERGE, CascadeType.PERSIST}, mappedBy = "game")
     private DrawRecord drawRecord;
+
+    @OneToOne(cascade = {CascadeType.REMOVE, CascadeType.MERGE, CascadeType.PERSIST}, mappedBy = "game")
+    private GameOverDetails details;
 }
