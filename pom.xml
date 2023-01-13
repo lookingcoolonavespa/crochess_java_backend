@@ -50,8 +50,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.crochess_engine_0x88</groupId>
-            <artifactId>crochess_engine_0x88</artifactId>
+            <groupId>org.crochess_api</groupId>
+            <artifactId>crochess_api</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
         <dependency>

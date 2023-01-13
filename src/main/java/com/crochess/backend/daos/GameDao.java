@@ -1,6 +1,7 @@
 package com.crochess.backend.daos;
 
 import com.crochess.backend.CrochessBackendApplication;
+import com.crochess.backend.controllers.GameController;
 import com.crochess.backend.models.DrawRecord;
 import com.crochess.backend.models.Game;
 import com.crochess.backend.models.GameOverDetails;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Repository;
 import java.lang.reflect.Field;
 import java.sql.*;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 @Repository
@@ -66,6 +68,24 @@ public class GameDao {
 
             Game game = ss.getReference(Game.class, id);
             updater.accept(game);
+            ss.merge(game);
+
+            tx.commit();
+            return game;
+        } catch (Exception error) {
+            System.out.println(error);
+            if (tx != null) tx.rollback();
+        }
+
+        return null;
+    }
+
+    public Game update(Game game) {
+        Session ss = CrochessBackendApplication.sf.getCurrentSession();
+        Transaction tx = null;
+        try (ss) {
+            tx = ss.beginTransaction();
+
             ss.merge(game);
 
             tx.commit();
