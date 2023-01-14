@@ -39,12 +39,27 @@ public class GameController {
         this.drRepo = drRepo;
     }
 
-    private void makeEngineMove(Game game) {
+    private void makeEngineMove(Game game, int depth) {
+        GameState gs = game.getGameState();
+
         com.crochess.moveValidator.Game moveValidator = new com.crochess.moveValidator.Game();
         int move;
         synchronized (GameController.class) {
-            move = com.crochess.engine0x88.moveEval.MoveEval.getBestMove(6);
+            // dont want to load fen because you wont be able to detect draw by repetition
+            String moves = gs.getMoves() == null ? "" : " moves " + gs.getMoves();
+            com.crochess.engine0x88.Uci.inputPosition("position startpos" + moves);
+            // update the state so you don't have to input the position in moveValidator as well
+            moveValidator.board = com.crochess.engine0x88.GameState.board;
+            moveValidator.pieceList = com.crochess.engine0x88.GameState.pieceList;
+            moveValidator.activeColor = com.crochess.engine0x88.GameState.activeColor;
+            moveValidator.castleRights = com.crochess.engine0x88.GameState.castleRights;
+            moveValidator.totalRepititions = com.crochess.engine0x88.GameState.totalRepititions;
+            moveValidator.enPassant = com.crochess.engine0x88.GameState.enPassant;
+            moveValidator.zobristHash = com.crochess.engine0x88.GameState.zobristHash;
+
+            move = com.crochess.engine0x88.moveEval.MoveEval.getBestMove(depth);
         }
+
         int captureDetails = moveValidator.makeMove(move);
 
         // dont need to reset draw record first so human player has a chance to accept unforced draw
@@ -62,23 +77,29 @@ public class GameController {
             dr.setW(true);
         }
 
-        GameState gs = game.getGameState();
-        gs.setMoves(gs.getMoves() + " " + Uci.moveToAlgebra(move));
         String notation = moveValidator.createMoveNotation(move, captureDetails, checkmate);
-        gs.setHistory(gs.getHistory() + " " + notation);
+        String history = gs.getHistory() == null ? notation : gs.getHistory() + " " + notation;
+        gs.setHistory(history);
         gs.setFen(moveValidator.getFen());
+        String algebra = com.crochess.engine0x88.Uci.moveToAlgebra(move);
+        String moves = gs.getMoves() == null ? algebra : gs.getMoves() + " " + algebra;
+        gs.setMoves(moves);
     }
 
     @SubscribeMapping("/api/game/{id}")
-    public Game get(
+    public void get(
             @DestinationVariable
-            int id) {
+            int id) throws JsonProcessingException {
         Game game = this.dao.get(id);
+        this.template.convertAndSend("/topic/api/game/" + id,
+                new ObjectMapper().writeValueAsString(new WsMessage<Game>("init", game)));
+
         if (Objects.equals(game.getW_id(), "engine")) {
-            makeEngineMove(game);
+            makeEngineMove(game, 4);
             this.dao.update(game);
+            this.template.convertAndSend("/topic/api/game/" + id,
+                    new ObjectMapper().writeValueAsString(new WsMessage<GameState>("update", game.getGameState())));
         }
-        return game;
     }
 
     @AllArgsConstructor
@@ -134,7 +155,7 @@ public class GameController {
     }
 
     @MessageMapping("/api/game/{id}")
-    public String makeMove(
+    public void makeMove(
             @DestinationVariable
             int id,
             @Payload
@@ -200,18 +221,40 @@ public class GameController {
                     gs.setB_time(base + (game.getIncrement() * 1000L));
                 }
                 gs.setTime_stamp_at_turn_start(System.currentTimeMillis());
-            } else if (!checkmate && !forcedDraw) {
-                makeEngineMove(game);
             }
         };
         Game g = this.dao.update(id, patchGame);
 
         if (g.getDetails()
              .getResult() != null) {
-            return new ObjectMapper().writeValueAsString(new WsMessage<GameOverGameState>("game over",
-                    new GameOverGameState(g.getGameState(), g.getDetails())));
+            this.template.convertAndSend("/topic/api/game/" + id,
+                    new ObjectMapper().writeValueAsString(new WsMessage<GameOverGameState>(
+                            "game over",
+                            new GameOverGameState(g.getGameState(), g.getDetails()))));
+            return;
         }
-        return new ObjectMapper().writeValueAsString(new WsMessage<GameState>("update", g.getGameState()));
+        this.template.convertAndSend("/topic/api/game/" + id,
+                new ObjectMapper().writeValueAsString(new WsMessage<GameState>("update", g.getGameState())));
+
+        boolean playingAgainstEngine = Objects.equals(g.getW_id(), "engine") ||
+                Objects.equals(g.getB_id(), "engine");
+        if (playingAgainstEngine) {
+            int totalMoves = g.getGameState()
+                              .getMoves()
+                              .split(" ").length;
+            makeEngineMove(g, totalMoves > 1 ? 5 : 4);
+            this.dao.update(g);
+            if (g.getDetails()
+                 .getResult() != null) {
+                this.template.convertAndSend("/topic/api/game/" + id,
+                        new ObjectMapper().writeValueAsString(new WsMessage<GameOverGameState>(
+                                "game over",
+                                new GameOverGameState(g.getGameState(), g.getDetails()))));
+                return;
+            }
+            this.template.convertAndSend("/topic/api/game/" + id,
+                    new ObjectMapper().writeValueAsString(new WsMessage<GameState>("update", g.getGameState())));
+        }
     }
 
     @MessageMapping("/api/game/{id}/draw")

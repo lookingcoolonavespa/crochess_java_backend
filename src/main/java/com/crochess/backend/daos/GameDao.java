@@ -80,7 +80,7 @@ public class GameDao {
         return null;
     }
 
-    public Game update(Game game) {
+    public void update(Game game) {
         Session ss = CrochessBackendApplication.sf.getCurrentSession();
         Transaction tx = null;
         try (ss) {
@@ -89,13 +89,10 @@ public class GameDao {
             ss.merge(game);
 
             tx.commit();
-            return game;
         } catch (Exception error) {
             System.out.println(error);
             if (tx != null) tx.rollback();
         }
-
-        return null;
     }
 
     public Game get(int id) {
