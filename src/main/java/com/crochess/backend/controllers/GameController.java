@@ -1,11 +1,10 @@
 package com.crochess.backend.controllers;
 
 import com.crochess.backend.daos.GameDao;
+import com.crochess.backend.misc.GameOverDetails;
 import com.crochess.backend.misc.WsMessage;
 import com.crochess.backend.models.DrawRecord;
 import com.crochess.backend.models.Game;
-import com.crochess.backend.models.GameOverDetails;
-import com.crochess.backend.models.GameState;
 import com.crochess.backend.repositories.DrawRecordRepository;
 import com.crochess.engine0x88.Uci;
 import com.crochess.engine0x88.types.Color;
@@ -40,13 +39,11 @@ public class GameController {
     }
 
     private void makeEngineMove(Game game, int depth) {
-        GameState gs = game.getGameState();
-
         com.crochess.moveValidator.Game moveValidator = new com.crochess.moveValidator.Game();
         int move;
         synchronized (GameController.class) {
             // dont want to load fen because you wont be able to detect draw by repetition
-            String moves = gs.getMoves() == null ? "" : " moves " + gs.getMoves();
+            String moves = game.getMoves() == null ? "" : " moves " + game.getMoves();
             com.crochess.engine0x88.Uci.inputPosition("position startpos" + moves);
             // update the state so you don't have to input the position in moveValidator as well
             moveValidator.board = com.crochess.engine0x88.GameState.board;
@@ -63,14 +60,13 @@ public class GameController {
         int captureDetails = moveValidator.makeMove(move);
 
         // dont need to reset draw record first so human player has a chance to accept unforced draw
-        GameOverDetails details = game.getDetails();
         boolean checkmate = moveValidator.isCheckmate(moveValidator.activeColor);
         if (checkmate) {
-            details.setResult("mate");
+            game.setResult("mate");
             char winner = Objects.equals("engine", game.getW_id()) ? 'w' : 'b';
-            details.setWinner(winner);
+            game.setWinner(winner);
         } else if (moveValidator.isForcedDraw()) {
-            details.setResult("draw");
+            game.setResult("draw");
         } else if (moveValidator.isUnforcedDraw()) {
             DrawRecord dr = game.getDrawRecord();
             dr.setB(true);
@@ -78,12 +74,12 @@ public class GameController {
         }
 
         String notation = moveValidator.createMoveNotation(move, captureDetails, checkmate);
-        String history = gs.getHistory() == null ? notation : gs.getHistory() + " " + notation;
-        gs.setHistory(history);
-        gs.setFen(moveValidator.getFen());
+        String history = game.getHistory() == null ? notation : game.getHistory() + " " + notation;
+        game.setHistory(history);
+        game.setFen(moveValidator.getFen());
         String algebra = com.crochess.engine0x88.Uci.moveToAlgebra(move);
-        String moves = gs.getMoves() == null ? algebra : gs.getMoves() + " " + algebra;
-        gs.setMoves(moves);
+        String moves = game.getMoves() == null ? algebra : game.getMoves() + " " + algebra;
+        game.setMoves(moves);
     }
 
     @SubscribeMapping("/api/game/{id}")
@@ -91,14 +87,12 @@ public class GameController {
             @DestinationVariable
             int id) throws JsonProcessingException {
         Game game = this.dao.get(id);
-        this.template.convertAndSend("/topic/api/game/" + id,
-                new ObjectMapper().writeValueAsString(new WsMessage<Game>("init", game)));
+        this.template.convertAndSend("/topic/api/game/" + id, game.toJson("init"));
 
         if (Objects.equals(game.getW_id(), "engine")) {
             makeEngineMove(game, 4);
             this.dao.update(game);
-            this.template.convertAndSend("/topic/api/game/" + id,
-                    new ObjectMapper().writeValueAsString(new WsMessage<GameState>("update", game.getGameState())));
+            this.template.convertAndSend("/topic/api/game/" + id, game.toJson("game over"));
         }
     }
 
@@ -129,30 +123,6 @@ public class GameController {
         public String move;
     }
 
-    @Getter
-    private static class GameOverGameState {
-        public GameOverGameState(GameState gs, GameOverDetails details) {
-            this.game_id = gs.getGame_id();
-            this.time_stamp_at_turn_start = gs.getTime_stamp_at_turn_start();
-            this.fen = gs.getFen();
-            this.w_time = gs.getW_time();
-            this.b_time = gs.getB_time();
-            this.history = gs.getHistory();
-            this.moves = gs.getMoves();
-            this.result = details.getResult();
-            this.winner = String.valueOf(details.getWinner());
-        }
-
-        private final Integer game_id;
-        private final long time_stamp_at_turn_start;
-        private final String fen;
-        private final long w_time;
-        private final long b_time;
-        private final String history;
-        private final String moves;
-        private final String result; // mate, draw, or time
-        private final String winner;
-    }
 
     @MessageMapping("/api/game/{id}")
     public void makeMove(
@@ -162,12 +132,11 @@ public class GameController {
             MoveDetails moveDetails) throws JsonProcessingException {
         Consumer<Game> patchGame = (Game game) -> {
             com.crochess.moveValidator.Game moveValidator = new com.crochess.moveValidator.Game();
-            GameState gs = game.getGameState();
-            GameOverDetails details = game.getDetails();
-            if (details.getResult() != null) return;
-
-            if (gs.getMoves() == null) com.crochess.engine0x88.Uci.inputPosition("position startpos", moveValidator);
-            else com.crochess.engine0x88.Uci.inputPosition("position startpos moves " + gs.getMoves(), moveValidator);
+            if (game.getResult() != null) return;
+            if (game.getMoves() == null) com.crochess.engine0x88.Uci.inputPosition("position startpos", moveValidator);
+            else {
+                com.crochess.engine0x88.Uci.inputPosition("position startpos moves " + game.getMoves(), moveValidator);
+            }
             // if the playerId doesn't match up to the active color
             if (moveValidator.activeColor == Color.W &&
                     !Objects.equals(moveDetails.playerId, game.getW_id()) ||
@@ -188,72 +157,59 @@ public class GameController {
             boolean checkmate =
                     moveValidator.isCheckmate(moveValidator.activeColor);
             // need this variable to see if engine (if other player is engine) needs to make a move
-            boolean forcedDraw = false;
             if (checkmate) {
-                details.setResult("mate");
+                game.setResult("mate");
                 char winner = Objects.equals(moveDetails.playerId, game.getW_id()) ? 'w' : 'b';
-                details.setWinner(winner);
+                game.setWinner(winner);
             } else if (moveValidator.isForcedDraw()) {
-                forcedDraw = true;
-                details.setResult("draw");
+                game.setResult("draw");
             } else if (moveValidator.isUnforcedDraw()) {
                 dr.setB(true);
                 dr.setW(true);
             }
 
-            gs.setMoves(gs.getMoves() != null ? gs.getMoves() + " " + moveDetails.move : moveDetails.move);
+            game.setMoves(game.getMoves() != null ? game.getMoves() + " " + moveDetails.move : moveDetails.move);
             String notation = moveValidator.createMoveNotation(move, captureDetails, checkmate);
-            String history = gs.getHistory() == null ? notation : gs.getHistory() + " " + notation;
-            gs.setHistory(history);
-            gs.setFen(moveValidator.getFen());
+            String history = game.getHistory() == null ? notation : game.getHistory() + " " + notation;
+            game.setHistory(history);
+            game.setFen(moveValidator.getFen());
 
             boolean playingAgainstEngine = Objects.equals(game.getW_id(), "engine") ||
                     Objects.equals(game.getB_id(), "engine");
             if (!playingAgainstEngine) {
                 // deal with timer
-                long timeSpent = System.currentTimeMillis() - gs.getTime_stamp_at_turn_start();
+                long timeSpent = System.currentTimeMillis() - game.getTime_stamp_at_turn_start();
                 if (Objects.equals(moveDetails.playerId, game.getW_id())) {
-                    long base = gs.getW_time() - timeSpent;
+                    long base = game.getW_time() - timeSpent;
                     // convert increment to milliseconds before adding to base
-                    gs.setW_time(base + (game.getIncrement() * 1000L));
+                    game.setW_time(base + (game.getIncrement() * 1000L));
                 } else {
-                    long base = gs.getB_time() - timeSpent;
-                    gs.setB_time(base + (game.getIncrement() * 1000L));
+                    long base = game.getB_time() - timeSpent;
+                    game.setB_time(base + (game.getIncrement() * 1000L));
                 }
-                gs.setTime_stamp_at_turn_start(System.currentTimeMillis());
+                game.setTime_stamp_at_turn_start(System.currentTimeMillis());
             }
         };
         Game g = this.dao.update(id, patchGame);
 
-        if (g.getDetails()
-             .getResult() != null) {
-            this.template.convertAndSend("/topic/api/game/" + id,
-                    new ObjectMapper().writeValueAsString(new WsMessage<GameOverGameState>(
-                            "game over",
-                            new GameOverGameState(g.getGameState(), g.getDetails()))));
+        if (g.getResult() != null) {
+            this.template.convertAndSend("/topic/api/game/" + id, g.toJson("game over"));
             return;
         }
-        this.template.convertAndSend("/topic/api/game/" + id,
-                new ObjectMapper().writeValueAsString(new WsMessage<GameState>("update", g.getGameState())));
+        this.template.convertAndSend("/topic/api/game/" + id, g.toJson("update"));
 
         boolean playingAgainstEngine = Objects.equals(g.getW_id(), "engine") ||
                 Objects.equals(g.getB_id(), "engine");
         if (playingAgainstEngine) {
-            int totalMoves = g.getGameState()
-                              .getMoves()
+            int totalMoves = g.getMoves()
                               .split(" ").length;
             makeEngineMove(g, totalMoves > 1 ? 5 : 4);
             this.dao.update(g);
-            if (g.getDetails()
-                 .getResult() != null) {
-                this.template.convertAndSend("/topic/api/game/" + id,
-                        new ObjectMapper().writeValueAsString(new WsMessage<GameOverGameState>(
-                                "game over",
-                                new GameOverGameState(g.getGameState(), g.getDetails()))));
+            if (g.getResult() != null) {
+                this.template.convertAndSend("/topic/api/game/" + id, g.toJson("game over"));
                 return;
             }
-            this.template.convertAndSend("/topic/api/game/" + id,
-                    new ObjectMapper().writeValueAsString(new WsMessage<GameState>("update", g.getGameState())));
+            this.template.convertAndSend("/topic/api/game/" + id, g.toJson("update"));
         }
     }
 
@@ -279,30 +235,25 @@ public class GameController {
             dr.setB(false);
             dr.setW(false);
 
-            details.setGame_id(id);
-            g.setDetails(details);
-
+            g.setResult(details.getResult());
+            g.setWinner(details.getWinner());
             // deal with timer
-            GameState gs = g.getGameState();
-            String currentTurn = gs.getFen()
-                                   .split(" ")[1];
+            String currentTurn = g.getFen()
+                                  .split(" ")[1];
 
-            long timeSpent = System.currentTimeMillis() - gs.getTime_stamp_at_turn_start();
+            long timeSpent = System.currentTimeMillis() - g.getTime_stamp_at_turn_start();
             if (Objects.equals(currentTurn, "w")) {
-                long base = gs.getW_time() - timeSpent;
+                long base = g.getW_time() - timeSpent;
                 // convert increment to milliseconds before adding to base
-                gs.setW_time(base + (g.getIncrement() * 1000L));
+                g.setW_time(base + (g.getIncrement() * 1000L));
             } else {
-                long base = gs.getB_time() - timeSpent;
-                gs.setB_time(base + (g.getIncrement() * 1000L));
+                long base = g.getB_time() - timeSpent;
+                g.setB_time(base + (g.getIncrement() * 1000L));
             }
-            gs.setTime_stamp_at_turn_start(System.currentTimeMillis());
+            g.setTime_stamp_at_turn_start(System.currentTimeMillis());
         };
         Game g = this.dao.update(id, patchGame);
 
-        String json = new ObjectMapper().writeValueAsString(new WsMessage<GameOverGameState>("game over",
-                new GameOverGameState(g.getGameState(), g.getDetails())));
-
-        this.template.convertAndSend("/topic/api/game/" + id, json);
+        this.template.convertAndSend("/topic/api/game/" + id, g.toJson("game over"));
     }
 }

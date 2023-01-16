@@ -1,22 +1,14 @@
 package com.crochess.backend.daos;
 
 import com.crochess.backend.CrochessBackendApplication;
-import com.crochess.backend.controllers.GameController;
 import com.crochess.backend.models.DrawRecord;
 import com.crochess.backend.models.Game;
-import com.crochess.backend.models.GameOverDetails;
-import com.crochess.backend.models.GameState;
-import com.crochess.backend.models.gameSeek.GameSeek;
 import jakarta.persistence.*;
-import org.hibernate.LockOptions;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.springframework.stereotype.Repository;
 
-import java.lang.reflect.Field;
-import java.sql.*;
 import java.util.List;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 @Repository
@@ -27,16 +19,14 @@ public class GameDao {
         try (ss) {
             tx = ss.beginTransaction();
 
-            System.out.println(game);
-            GameState gs =
-                    new GameState(game.getId(), System.currentTimeMillis(), "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP" +
-                            "/RNBQKBNR w KQkq - 0 1", game.getTime() * 1000L, game.getTime() * 1000L, null, null, game);
+            game.setTime_stamp_at_turn_start(System.currentTimeMillis());
+            game.setFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+            game.setB_time(game.getTime() * 1000L);
+            game.setW_time(game.getTime() * 1000L);
+
             DrawRecord dr = new DrawRecord(game.getId(), false, false, game);
-            GameOverDetails details = new GameOverDetails(game.getId(), null, null, game);
-            game.setGameState(gs);
             game.setDrawRecord(dr);
-            game.setDetails(details);
-            ss.persist(gs);
+            ss.persist(dr);
             // delete game seeks opened by either player
             String hql = "SELECT gs.id FROM GameSeek gs WHERE gs.seeker = :wId OR gs.seeker = :bId";
             Query query = ss.createQuery(hql);
@@ -105,25 +95,6 @@ public class GameDao {
             tx.commit();
 
             return game;
-        } catch (Exception error) {
-            System.out.println(error);
-            if (tx != null) tx.rollback();
-        }
-
-        return null;
-    }
-
-    public GameState getState(int id) {
-        Session ss = CrochessBackendApplication.sf.getCurrentSession();
-        Transaction tx = null;
-        try (ss) {
-            tx = ss.beginTransaction();
-
-            GameState gs = ss.get(GameState.class, id);
-
-            tx.commit();
-
-            return gs;
         } catch (Exception error) {
             System.out.println(error);
             if (tx != null) tx.rollback();

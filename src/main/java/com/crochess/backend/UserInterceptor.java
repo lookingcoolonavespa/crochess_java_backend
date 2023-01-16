@@ -1,5 +1,6 @@
 package com.crochess.backend;
 
+import com.crochess.backend.misc.User;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;

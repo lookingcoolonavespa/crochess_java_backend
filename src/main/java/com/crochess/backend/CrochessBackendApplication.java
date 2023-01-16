@@ -2,8 +2,6 @@ package com.crochess.backend;
 
 import com.crochess.backend.models.DrawRecord;
 import com.crochess.backend.models.Game;
-import com.crochess.backend.models.GameOverDetails;
-import com.crochess.backend.models.GameState;
 import com.crochess.backend.models.gameSeek.GameSeek;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
@@ -20,10 +18,8 @@ public class CrochessBackendApplication {
     public static SessionFactory sf =
             new Configuration().configure("hibernate.cfg.xml")
                                .addAnnotatedClass(Game.class)
-                               .addAnnotatedClass(GameState.class)
                                .addAnnotatedClass(
                                        GameSeek.class)
                                .addAnnotatedClass(DrawRecord.class)
-                               .addAnnotatedClass(GameOverDetails.class)
                                .buildSessionFactory();
 }

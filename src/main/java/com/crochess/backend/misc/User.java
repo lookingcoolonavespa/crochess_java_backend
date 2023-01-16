@@ -1,11 +1,11 @@
-package com.crochess.backend;
+package com.crochess.backend.misc;
 
 import java.security.Principal;
 
-class User implements Principal {
+public class User implements Principal {
     String name;
 
-    User(String name) {
+    public User(String name) {
         System.out.println(name);
         this.name = name;
     }

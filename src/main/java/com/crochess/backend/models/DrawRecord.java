@@ -17,7 +17,7 @@ public class DrawRecord {
     private Integer game_id;
     boolean w;
     boolean b;
-    @OneToOne(cascade = {CascadeType.REMOVE}, fetch = FetchType.LAZY)
+    @OneToOne(cascade = {CascadeType.REMOVE, CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.LAZY)
     @JoinColumn(name = "game_id")
     @MapsId
     @JsonIgnore
