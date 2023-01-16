@@ -90,7 +90,7 @@ public class Game {
             }
 
             case "game over" -> {
-                new ObjectMapper().writeValueAsString(new WsMessage<GameOverGameState>(
+                return new ObjectMapper().writeValueAsString(new WsMessage<GameOverGameState>(
                         "game over",
                         new GameOverGameState(this)));
             }

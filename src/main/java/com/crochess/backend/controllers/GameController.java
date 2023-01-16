@@ -46,6 +46,7 @@ public class GameController {
             String moves = game.getMoves() == null ? "" : " moves " + game.getMoves();
             com.crochess.engine0x88.Uci.inputPosition("position startpos" + moves);
             // update the state so you don't have to input the position in moveValidator as well
+            // using moveValidator instead of the engine gameState so the lock releases sooner
             moveValidator.board = com.crochess.engine0x88.GameState.board;
             moveValidator.pieceList = com.crochess.engine0x88.GameState.pieceList;
             moveValidator.activeColor = com.crochess.engine0x88.GameState.activeColor;
@@ -59,7 +60,9 @@ public class GameController {
 
         int captureDetails = moveValidator.makeMove(move);
 
-        // dont need to reset draw record first so human player has a chance to accept unforced draw
+        DrawRecord dr = game.getDrawRecord();
+        dr.setB(false);
+        dr.setW(false);
         boolean checkmate = moveValidator.isCheckmate(moveValidator.activeColor);
         if (checkmate) {
             game.setResult("mate");
@@ -68,7 +71,6 @@ public class GameController {
         } else if (moveValidator.isForcedDraw()) {
             game.setResult("draw");
         } else if (moveValidator.isUnforcedDraw()) {
-            DrawRecord dr = game.getDrawRecord();
             dr.setB(true);
             dr.setW(true);
         }
@@ -89,10 +91,10 @@ public class GameController {
         Game game = this.dao.get(id);
         this.template.convertAndSend("/topic/api/game/" + id, game.toJson("init"));
 
-        if (Objects.equals(game.getW_id(), "engine")) {
+        if (Objects.equals(game.getW_id(), "engine") && game.getMoves() == null) {
             makeEngineMove(game, 4);
             this.dao.update(game);
-            this.template.convertAndSend("/topic/api/game/" + id, game.toJson("game over"));
+            this.template.convertAndSend("/topic/api/game/" + id, game.toJson("update"));
         }
     }
 
