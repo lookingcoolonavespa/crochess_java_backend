@@ -10,13 +10,19 @@
         <!--  lookup parent from repository  -->
     </parent>
     <groupId>com.crochess.backend</groupId>
-    <artifactId>main</artifactId>
+    <artifactId>crochess_backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>crochess-backend</name>
     <description>crochess backend</description>
     <properties>
         <java.version>17</java.version>
     </properties>
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -50,9 +56,9 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.crochess_api</groupId>
-            <artifactId>crochess_api</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <groupId>com.github.lookingcoolonavespa</groupId>
+            <artifactId>crochess_engine_0x88</artifactId>
+            <version>main-3bab264505-1</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -88,14 +94,26 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <classifier>spring-boot</classifier>
+                            <mainClass>
+                                com.crochess.backend.CrochessBackendApplication
+                            </mainClass>
+                            <excludes>
+                                <exclude>
+                                    <groupId>org.projectlombok</groupId>
+                                    <artifactId>lombok</artifactId>
+                                </exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
+
             </plugin>
         </plugins>
     </build>

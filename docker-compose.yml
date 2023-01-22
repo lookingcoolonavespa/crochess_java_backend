@@ -1,0 +1,16 @@
+networks:
+  droplet-network:
+    external: true
+
+services:
+  crochess_backend:
+    build:
+      context: .
+    container_name: crochess_spring
+    image: lipsbyburtsbees/crochess_spring:latest
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    networks:
+      - droplet-network

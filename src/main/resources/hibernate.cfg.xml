@@ -15,10 +15,14 @@
         <property name="connection.driver_class">org.postgresql.Driver
         </property>
         <property name="connection.url">
-            jdbc:postgresql://db.kwyhgjaypcexysmsqsml.supabase.co:5432/postgres?user=postgres&amp;R3b3lwitout@pas3
+            ${SPRING_DATASOURCE_URL}
         </property>
-        <property name="connection.username">postgres</property>
-        <property name="connection.password">R3b3lwitout@pas3</property>
+        <property name="connection.username">${SPRING_DATASOURCE_USERNAME
+        }
+        </property>
+        <property name="connection.password">${SPRING_DATASOURCE_PASSWORD
+        }
+        </property>
 
         <!-- JDBC connection pool (use the built-in) -->
         <property name="connection.pool_size">100</property>
