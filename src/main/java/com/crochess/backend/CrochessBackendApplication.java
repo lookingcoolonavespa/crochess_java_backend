@@ -17,6 +17,10 @@ public class CrochessBackendApplication {
 
     public static SessionFactory sf =
             new Configuration().configure("hibernate.cfg.xml")
+                               .setProperty("hibernate.connection.url", System.getenv("DB_URL"))
+                               .setProperty("hibernate.connection.username", System.getenv("DB_USERNAME"))
+                               .setProperty(
+                                       "hibernate.connection.password", System.getenv("DB_PASSWORD"))
                                .addAnnotatedClass(Game.class)
                                .addAnnotatedClass(
                                        GameSeek.class)

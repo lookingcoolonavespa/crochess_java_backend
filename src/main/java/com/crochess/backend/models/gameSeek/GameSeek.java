@@ -40,9 +40,9 @@ public class GameSeek {
     ;
 
     public GameType getGameType() {
-        if (this.time < 120) return GameType.BULLET;
-        else if (this.time < 300) return GameType.BLITZ;
-        else if (this.time < 1800) return GameType.RAPID;
+        if (this.time <= 120000) return GameType.BULLET;
+        else if (this.time <= 300000) return GameType.BLITZ;
+        else if (this.time <= 1800000) return GameType.RAPID;
         else return GameType.CLASSICAL;
     }
 

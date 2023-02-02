@@ -21,8 +21,9 @@ public class GameDao {
 
             game.setTime_stamp_at_turn_start(System.currentTimeMillis());
             game.setFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-            game.setB_time(game.getTime() * 1000L);
-            game.setW_time(game.getTime() * 1000L);
+            game.setB_time(game.getTime());
+            game.setW_time(game.getTime());
+            System.out.println(game.getW_time());
 
             DrawRecord dr = new DrawRecord(game.getId(), false, false, game);
             game.setDrawRecord(dr);
@@ -89,7 +90,6 @@ public class GameDao {
         Transaction tx = null;
         try (Session ss = CrochessBackendApplication.sf.getCurrentSession()) {
             tx = ss.beginTransaction();
-            System.out.println(tx);
             Game game = ss.get(Game.class, id);
             System.out.println(game);
             tx.commit();

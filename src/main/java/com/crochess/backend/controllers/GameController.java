@@ -6,12 +6,11 @@ import com.crochess.backend.misc.WsMessage;
 import com.crochess.backend.models.DrawRecord;
 import com.crochess.backend.models.Game;
 import com.crochess.backend.repositories.DrawRecordRepository;
-import com.crochess.engine0x88.Uci;
+import com.crochess.backend.types.UserColor;
 import com.crochess.engine0x88.types.Color;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -20,8 +19,8 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.annotation.SubscribeMapping;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+
 import java.util.function.Consumer;
 
 @RequestMapping("api/game")
@@ -29,8 +28,9 @@ import java.util.function.Consumer;
 public class GameController {
     private final GameDao dao;
     private final SimpMessagingTemplate template;
-
     private final DrawRecordRepository drRepo;
+
+    static Map<Integer, Timer> timers = new HashMap<>();
 
     public GameController(GameDao dao, SimpMessagingTemplate template, DrawRecordRepository drRepo) {
         this.dao = dao;
@@ -116,6 +116,8 @@ public class GameController {
         String bJson = new ObjectMapper().writeValueAsString(new GameIdMsg(game.getId(), "b"));
         template.convertAndSendToUser(game.getW_id(), "/queue/gameseeks", wJson);
         template.convertAndSendToUser(game.getB_id(), "/queue/gameseeks", bJson);
+
+        handleTimer(game);
         return game;
     }
 
@@ -125,6 +127,44 @@ public class GameController {
         public String move;
     }
 
+
+    public void handleTimer(Game game) {
+        if (timers.get(game.id) != null) timers.get(game.id)
+                                               .cancel();
+
+        String activeColor = game.getFen()
+                                 .split(" ")[1];
+        GameController controller = this;
+        TimerTask task = new TimerTask() {
+            public void run() {
+
+                if (Objects.equals(activeColor, "w")) {
+                    game.setW_time(0);
+                    game.setResult("time");
+                    game.setWinner(UserColor.B);
+                } else {
+                    game.setB_time(0);
+                    game.setResult("time");
+                    game.setWinner(UserColor.W);
+                }
+
+                controller.dao.update(game);
+                try {
+                    handleGameOver(game);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
+
+        Timer timer = new Timer();
+        timer.schedule(task, Objects.equals(activeColor, "w") ? game.getW_time() : game.getB_time());
+    }
+
+    public void handleGameOver(Game game) throws JsonProcessingException {
+        timers.remove(game.getId());
+        this.template.convertAndSend("/topic/api/game/" + game.getId(), game.toJson("game over"));
+    }
 
     @MessageMapping("/api/game/{id}")
     public void makeMove(
@@ -193,9 +233,10 @@ public class GameController {
             }
         };
         Game g = this.dao.update(id, patchGame);
+        handleTimer(g);
 
         if (g.getResult() != null) {
-            this.template.convertAndSend("/topic/api/game/" + id, g.toJson("game over"));
+            handleGameOver(g);
             return;
         }
         this.template.convertAndSend("/topic/api/game/" + id, g.toJson("update"));
@@ -255,7 +296,6 @@ public class GameController {
             g.setTime_stamp_at_turn_start(System.currentTimeMillis());
         };
         Game g = this.dao.update(id, patchGame);
-
-        this.template.convertAndSend("/topic/api/game/" + id, g.toJson("game over"));
+        handleGameOver(g);
     }
 }
